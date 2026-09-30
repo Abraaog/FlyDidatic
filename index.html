@@ -9,626 +9,86 @@
     ============================================================
     CÉREBRO DE MOSCA — SIMULADOR DE CONECTOMA (versão didática)
     ============================================================
-    PÚBLICO: alunos do 1º e 2º ano do ensino médio que já conhecem
-    JavaScript procedural (funções, condicionais, arrays e objetos),
-    mas ainda NÃO viram Orientação a Objetos.
+    Estrutura modular (nada de monolito!):
 
-    CONCEITOS DE NEUROCIÊNCIA ABORDADOS:
-      - Conectoma: o "mapa de conexões" entre neurônios de um cérebro.
-        (Projeto real de referência: conectoma da Drosophila)
-      - Modelo de neurônio "Integra-e-Dispara-com-Vazamento"
-        (Leaky Integrate-and-Fire) simplificado:
-          ativação += estímulos      (integra)
-          ativação *= taxaDeVazamento (vaza / esfria)
-          se ativação >= limiar      -> o neurônio DISPARA
-      - Sinapses excitatórias (peso > 0) e inibitórias (peso < 0).
-      - Prioridade comportamental: fugir de um predador vale mais
-        do que buscar comida (inibição entre circuitos).
+      index.html      -> estrutura da página e ordem de carregamento
+      css/estilo.css  -> tema visual "laboratório neon"
+      js/motor.js     -> PARTE 1: motor do jogo (o aluno NÃO edita)
+      js/cerebro.js   -> PARTE 2: conectoma (ÁREA DE EDIÇÃO DO ALUNO)
 
-    ESTRUTURA DO ARQUIVO:
-      - PARTE 1: MOTOR DO JOGO (gráficos, sombra, colisões, HUD).
-        O aluno NÃO precisa editar nada aqui.
-      - PARTE 2: CÉREBRO DA MOSCA (neurônios + sinapses).
-        É aqui que o aluno edita os PESOS das sinapses para
-        "consertar o cérebro" e fazer a mosca fugir da sombra.
+    A ORDEM DOS <script> ABAIXO IMPORTA:
+      1. p5.js      (biblioteca de gráficos)
+      2. motor.js   (usa funções do p5; o cérebro depende dele)
+      3. cerebro.js (define neuronios/sinapses usados pelo motor)
+
+    COMO RODAR (precisa de servidor local por causa dos módulos):
+      npm install
+      npm start          -> abre em http://localhost:3000
   -->
 
   <!-- Biblioteca p5.js carregada via CDN (versão 1.9.0 ou superior) -->
   <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
 
-  <!-- ===== Estilo da página ao redor do canvas ===== -->
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background-color: #f5f0e6;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      font-family: Georgia, 'Times New Roman', serif;
-      color: #2b2b2b;
-    }
-    h1 { font-size: 24px; margin: 18px 0 4px 0; }
-    p.sub { margin: 0 0 12px 0; font-size: 14px; font-style: italic; color: #555; }
-  </style>
+  <!-- Fontes divertidas e legíveis (Google Fonts) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+
+  <!-- Tema visual da página -->
+  <link rel="stylesheet" href="css/estilo.css">
 </head>
 <body>
 
-  <h1>🧠 Conectoma de Mosca — Laboratório de Neurociência</h1>
-  <p class="sub">Mova o mouse para controlar a sombra. Ajuste as sinapses no código para fazer a mosca fugir!</p>
+  <header>
+    <div class="emoji-cabecalho">🧠</div>
+    <h1>Conectoma de Mosca — Laboratório de Neurociência</h1>
+    <p class="sub">Um predador espreita sua mosca… mas o cérebro dela foi desligado!
+    Edite as sinapses no código, reacenda os neurônios e faça-a sobreviver.</p>
+    <div class="etiquetas">
+      <span class="etiqueta violeta">p5.js</span>
+      <span class="etiqueta menta">🪰 Drosophila</span>
+      <span class="etiqueta coral">⚡ Neurônios LIF</span>
+      <span class="etiqueta">🎓 Ensino Médio</span>
+    </div>
+  </header>
+
+  <!-- Passo a passo em cartões coloridos -->
+  <div class="cartoes">
+    <div class="cartao c1">
+      <h3><span class="num">1</span> 🖱️ Controle a sombra</h3>
+      <p>Mova o mouse: você é o predador! A sombra fica <b style="color:var(--coral)">vermelha</b> quando perto da mosca.</p>
+    </div>
+    <div class="cartao c2">
+      <h3><span class="num">2</span> ⚡ Conserte o cérebro</h3>
+      <p>Abra o arquivo <b>js/cerebro.js</b> e troque os <b>pesos das sinapses</b> na ÁREA DE EDIÇÃO DO ALUNO.</p>
+    </div>
+    <div class="cartao c3">
+      <h3><span class="num">3</span> 🏆 Sobreviva 10s</h3>
+      <p>Se a mosca escapar por 10 segundos, o conectoma funciona. Você venceu!</p>
+    </div>
+  </div>
 
   <!-- O canvas do p5.js será inserido dentro desta div -->
   <div id="canvas-wrap"></div>
 
-  <!-- ==================================================================
-       Todo o jogo vive neste único <script>.
-       ================================================================== -->
-  <script>
-    /* ================================================================
-       PARTE 1 — MOTOR DO JOGO (o aluno NÃO precisa mexer aqui)
-       Contém: classe Mosca (só desenho), Sombra, colisões, HUD,
-       painel de neurônios e o game loop (draw).
-       ================================================================ */
-
-    // ----- Constantes do mundo -----
-    const LARGURA = 800;                    // largura do canvas
-    const ALTURA  = 600;                    // altura do canvas
-    const SEGUNDOS_PARA_VENCER = 10;        // sobreviver 10s = vitória
-    const FRAMES_PARA_VENCER   = SEGUNDOS_PARA_VENCER * 60; // 60 FPS
-
-    const COR_FUNDO = '#fdf8ee';            // cor do "laboratório"
-
-    // ----- Estado global do jogo -----
-    let mosca;                 // objeto da classe Mosca (só gráficos/movimento)
-    let comida   = null;       // maçã do desafio final (null = não existe ainda)
-    let fimDeJogo = false;     // virou true quando a sombra pega a mosca
-    let vitoria   = false;     // virou true ao sobreviver 10 segundos
-    let frameAtual = 0;        // contador de frames (60 por segundo)
-    let tempoSobrevivido = 0;  // segundos sobrevividos (para o placar)
-    let primeiroFrame = true;  // controla a tela de instruções inicial
-    let framesAteNovaComida = 180; // contador para nascer uma nova maçã
-
-    // ---------------------------------------------------------------
-    // CLASSE MOSCA — única classe do projeto (exceção didática!).
-    // Serve APENAS para organizar o desenho e o movimento da mosca.
-    // Trate-a como uma "caixa preta" do motor: o aluno não precisa
-    // entender Orientação a Objetos para jogar.
-    // ---------------------------------------------------------------
-    class Mosca {
-      constructor() {
-        this.x = LARGURA / 2;   // posição horizontal
-        this.y = ALTURA / 2;    // posição vertical
-        this.angulo = 0;        // direção para onde a mosca "olha"
-        this.rastro = [];       // ARRAY de posições anteriores (efeito de velocidade)
-      }
-
-      // Move a mosca na direção `angulo` com a `velocidade` dada
-      // e registra a posição no rastro.
-      mover(angulo, velocidade) {
-        // cos/sen convertem um ângulo em deslocamento no eixo x/y
-        this.x += Math.cos(angulo) * velocidade;
-        this.y += Math.sin(angulo) * velocidade;
-
-        // Mantém a mosca dentro da tela
-        this.x = constrain(this.x, 20, LARGURA - 20);
-        this.y = constrain(this.y, 20, ALTURA - 20);
-
-        // Guarda a posição no rastro (máximo de 15 pontos)
-        this.rastro.push({ x: this.x, y: this.y });
-        if (this.rastro.length > 15) this.rastro.shift();
-      }
-
-      // Desenha a mosca inteira: rastro, sombra, asas batendo, corpo e olhos.
-      desenhar() {
-        // 1) RASTRO — bolinhas esmaecidas nas posições anteriores.
-        for (let i = 0; i < this.rastro.length; i++) {
-          const p = this.rastro[i];
-          const opacidade = map(i, 0, this.rastro.length, 10, 60); // mais recentes = mais fortes
-          noStroke();
-          fill(60, 60, 60, opacidade);
-          circle(p.x, p.y, 6);
-        }
-
-        // 2) Sombra da mosca no chão (elipse achatada translúcida)
-        noStroke();
-        fill(0, 0, 0, 30);
-        ellipse(this.x, this.y + 14, 26, 10);
-
-        // 3) Corpo — desenhado num sistema de coordenadas próprio
-        //    (translate vai para a posição da mosca, rotate gira a tela)
-        push();
-        translate(this.x, this.y);
-        rotate(this.angulo);
-
-        // ASAS — batem usando a função sin() e o número do frame atual.
-        // sin() oscila suavemente entre -1 e 1; multiplicado por 0.5,
-        // vira um ângulo de asa que vai e volta (a "batida").
-        const anguloAsa = sin(frameCount * 0.5) * 0.5;
-        noStroke();
-
-        // Asa de cima (rotaciona para trás e para frente com a batida)
-        push();
-        rotate(-0.4 + anguloAsa);
-        fill(220, 230, 240, 150);
-        ellipse(-4, -14, 10, 22);
-        pop();
-
-        // Asa de baixo (espelhada)
-        push();
-        rotate(0.4 - anguloAsa);
-        fill(220, 230, 240, 150);
-        ellipse(-4, 14, 10, 22);
-        pop();
-
-        // CORPO — tórax + abdômen listrado
-        fill(40, 40, 45);
-        ellipse(0, 0, 30, 16);      // tórax
-        ellipse(-14, 0, 18, 12);    // abdômen (atrás)
-        stroke(90);
-        strokeWeight(1);
-        line(-18, -4, -10, -4);     // listras do abdômen
-        line(-18, 4, -10, 4);
-        noStroke();
-
-        // CABEÇA + olhos vermelhos (clássico da Drosophila!)
-        fill(50, 50, 55);
-        circle(16, 0, 14);
-        fill(230, 40, 40);
-        circle(19, -4, 6);
-        circle(19, 4, 6);
-
-        pop(); // volta ao sistema de coordenadas original da tela
-      }
-    }
-
-    // ---------------------------------------------------------------
-    // SOMBRA — o predador. Objeto simples (sem classe) que segue o
-    // mouse com um pequeno atraso, como um pássaro se aproximando.
-    // ---------------------------------------------------------------
-    const sombra = {
-      x: LARGURA / 2,
-      y: ALTURA / 2,
-      raio: 45,
-
-      // Interpolação linear: a sombra anda 5% do caminho até o mouse
-      // a cada frame -> movimento suave e "persguidor".
-      // (O valor 0.05 é um ajuste de BALANCEAMENTO: torna a sombra
-      // lenta o bastante para uma mosca com cérebro consertado
-      // conseguir escapar em campo aberto — mas ela ainda pode ser
-      // encurralada nos cantos!)
-      atualizar() {
-        this.x += (mouseX - this.x) * 0.05;
-        this.y += (mouseY - this.y) * 0.05;
-      },
-
-      desenhar() {
-        // A sombra fica VERMELHA quando está perto da mosca (perigo!)
-        const d = dist(this.x, this.y, mosca.x, mosca.y);
-        const perto = d < 150;
-
-        noStroke();
-        if (perto) fill('rgba(200, 30, 30, 0.75)');
-        else       fill('rgba(20, 20, 40, 0.55)');
-        circle(this.x, this.y, this.raio * 2);
-
-        // Anel pulsante de alerta quando o perigo é iminente
-        if (perto) {
-          noFill();
-          stroke(200, 30, 30, 100 + 60 * sin(frameCount * 0.2));
-          strokeWeight(3);
-          circle(this.x, this.y, this.raio * 2 + 10 + 6 * sin(frameCount * 0.2));
-          noStroke();
-        }
-      }
-    };
-
-    // ---------------------------------------------------------------
-    // COMIDA — Desafio adicional: a maçã que aparece aleatoriamente.
-    // ---------------------------------------------------------------
-    function talvezCriarComida() {
-      if (comida) return; // já existe uma maçã na tela
-      framesAteNovaComida--;
-      if (framesAteNovaComida <= 0) {
-        comida = {
-          x: random(100, LARGURA - 280), // longe do painel de neurônios
-          y: random(100, ALTURA - 100),
-          desenhar() {
-            noStroke();
-            fill(200, 40, 40);
-            circle(this.x, this.y, 20);                 // corpo da maçã
-            fill(60, 140, 60);
-            ellipse(this.x + 7, this.y - 12, 10, 5);    // folha
-            stroke(80, 50, 30);
-            strokeWeight(2);
-            line(this.x, this.y - 8, this.x, this.y - 14); // cabinho
-            noStroke();
-          }
-        };
-      }
-    }
-
-    // ---------------------------------------------------------------
-    // SETUP — roda UMA vez quando a página carrega.
-    // ---------------------------------------------------------------
-    function setup() {
-      const canvas = createCanvas(LARGURA, ALTURA);
-      canvas.parent('canvas-wrap');
-      frameRate(60); // game loop a 60 FPS
-      reiniciarJogo();
-    }
-
-    // ---------------------------------------------------------------
-    // DRAW — o GAME LOOP. O p5.js chama esta função ~60 vezes por
-    // segundo. Ordem: atualizar mundo -> cérebro -> colisões -> desenhar.
-    // ---------------------------------------------------------------
-    function draw() {
-      background(COR_FUNDO);
-
-      // O jogo só começa de verdade depois que o aluno fecha a tela
-      // de instruções (com um clique) — o cronômetro não corre antes.
-      if (!primeiroFrame && !fimDeJogo && !vitoria) {
-        frameAtual++;
-        tempoSobrevivido = frameAtual / 60;
-
-        // 1) O mundo se atualiza (a sombra persegue o mouse)
-        sombra.atualizar();
-
-        // 2) A comida pode nascer ou já pode existir na tela
-        talvezCriarComida();
-
-        // 3) CÉREBRO: sensores, sinapses, disparos e movimento da mosca
-        atualizarCerebro();
-
-        // 4) COLISÃO: sombra tocou a mosca? Fim de jogo!
-        if (dist(sombra.x, sombra.y, mosca.x, mosca.y) < sombra.raio + 8) {
-          fimDeJogo = true;
-        }
-
-        // 5) VITÓRIA: sobreviveu aos 10 segundos?
-        if (frameAtual >= FRAMES_PARA_VENCER) vitoria = true;
-      }
-
-      // 6) Desenha o mundo, a mosca e as camadas de interface
-      if (comida) comida.desenhar();
-      sombra.desenhar();
-      mosca.desenhar();
-      desenharPainelNeuronios();
-      desenharHUD();
-    }
-
-    // ---------------------------------------------------------------
-    // Reinicia todas as variáveis de estado do jogo.
-    // (Os PESOS das sinapses NÃO são resetados: assim o aluno pode
-    // testar melhorias sem perder suas edições a cada partida.)
-    // ---------------------------------------------------------------
-    function reiniciarJogo() {
-      mosca = new Mosca();
-      sombra.x = LARGURA / 2;
-      sombra.y = ALTURA - 60;
-      comida = null;
-      frameAtual = 0;
-      tempoSobrevivido = 0;
-      fimDeJogo = false;
-      vitoria = false;
-      primeiroFrame = true;
-      framesAteNovaComida = 180;
-      for (const n of neuronios) n.ativacao = 0; // cérebro "acorda" do zero
-    }
-
-    // Reinício com a tecla R (apenas no fim de jogo ou na vitória)
-    function keyReleased() {
-      if ((fimDeJogo || vitoria) && (key === 'r' || key === 'R')) {
-        reiniciarJogo();
-      }
-    }
-
-    // Clique também tira a tela de instruções
-    function mousePressed() {
-      primeiroFrame = false;
-    }
-
-    // ---------------------------------------------------------------
-    // HUD — instruções, placar e telas de fim de jogo / vitória.
-    // ---------------------------------------------------------------
-    function desenharHUD() {
-      noStroke();
-      textAlign(CENTER, TOP);
-      textSize(14);
-      fill(90);
-      text('Mova o mouse para controlar a sombra. Ajuste as sinapses para fazer a mosca fugir!',
-           LARGURA / 2, 12);
-      textSize(16);
-      fill(40);
-      text('Sobrevivendo: ' + tempoSobrevivido.toFixed(1) + 's / ' + SEGUNDOS_PARA_VENCER + 's',
-           LARGURA / 2, 34);
-
-      // Tela de instruções (só nos primeiros frames ou até clicar)
-      if (primeiroFrame && !fimDeJogo && !vitoria) {
-        fill(255, 255, 255, 220);
-        rect(0, 0, LARGURA, ALTURA);
-        fill(40);
-        textSize(28);
-        text('🧠 Bem-vindo ao laboratório de conectomas!', LARGURA / 2, ALTURA / 2 - 80);
-        textSize(18);
-        text('Esta mosca teve o cérebro "quebrado": as sinapses estão sem peso.', LARGURA / 2, ALTURA / 2 - 30);
-        text('Abra o código e ajuste os pesos das sinapses na', LARGURA / 2, ALTURA / 2 + 6);
-        text('ÁREA DE EDIÇÃO DO ALUNO para reconectá-las.', LARGURA / 2, ALTURA / 2 + 30);
-        text('Depois, faça a mosca sobreviver 10 segundos à sombra!', LARGURA / 2, ALTURA / 2 + 70);
-        textSize(14);
-        fill(120);
-        text('(clique para começar)', LARGURA / 2, ALTURA / 2 + 120);
-      }
-
-      // FIM DE JOGO
-      if (fimDeJogo) {
-        fill(0, 0, 0, 150); // véu escuro sobre o jogo
-        rect(0, 0, LARGURA, ALTURA);
-        fill(255, 60, 60);
-        textSize(52);
-        text('FIM DE JOGO', LARGURA / 2, ALTURA / 2 - 70);
-        fill(255);
-        textSize(20);
-        text('A sombra alcançou a mosca! O cérebro dela não reagiu a tempo.', LARGURA / 2, ALTURA / 2);
-        textSize(16);
-        text('Pressione R para reiniciar', LARGURA / 2, ALTURA / 2 + 40);
-      }
-
-      // VITÓRIA
-      if (vitoria) {
-        fill(0, 100, 0, 150); // véu verde sobre o jogo
-        rect(0, 0, LARGURA, ALTURA);
-        fill(160, 255, 160);
-        textSize(46);
-        text('🎉 SOBREVIVEU!', LARGURA / 2, ALTURA / 2 - 70);
-        fill(255);
-        textSize(20);
-        text('A mosca desviou da sombra por 10 segundos. Seu conectoma funciona!', LARGURA / 2, ALTURA / 2);
-        textSize(16);
-        text('Pressione R para reiniciar', LARGURA / 2, ALTURA / 2 + 40);
-      }
-    }
-
-    // ---------------------------------------------------------------
-    // Painel lateral: mostra a ativação de cada neurônio em BARRAS.
-    // Ajuda o aluno a VER o cérebro funcionando (e disparando!).
-    // ---------------------------------------------------------------
-    function desenharPainelNeuronios() {
-      const x0 = LARGURA - 240;
-      const y0 = 80;
-      noStroke();
-      fill(255, 255, 255, 200);
-      rect(x0 - 12, y0 - 26, 236, 40 + neuronios.length * 46, 8);
-
-      fill(60);
-      textAlign(LEFT, TOP);
-      textSize(13);
-      text('🧠 Ativação dos neurônios', x0, y0 - 20);
-
-      // Uma barra por neurônio: azul = carregando, verde = DISPAROU
-      neuronios.forEach(function(n, i) {
-        const y = y0 + 6 + i * 46;
-        fill(90);
-        text(n.nome, x0, y);
-
-        const largura = map(constrain(n.ativacao, 0, n.limiar * 2), 0, n.limiar * 2, 0, 200);
-        fill(225);
-        rect(x0, y + 16, 200, 10, 5);
-        if (n.disparou) fill(0, 160, 60);
-        else            fill(70, 130, 180);
-        rect(x0, y + 16, largura, 10, 5);
-      });
-    }
-
-    /* ================================================================
-       PARTE 2 — CÉREBRO DA MOSCA (ÁREA DE EDIÇÃO DO ALUNO)
-       Aqui vive o "conectoma": a lista de neurônios e de sinapses.
-       ================================================================ */
-
-    // ---------------------------------------------------------------
-    // LISTA DE NEURÔNIOS
-    // Cada neurônio é um OBJETO com estas propriedades:
-    //   nome            -> texto que identifica o neurônio
-    //   ativacao        -> número que acumula estímulos (começa em 0)
-    //   limiar          -> se a ativação passar desse valor, ele DISPARA
-    //   taxaDeVazamento -> multiplicador de decaimento por frame
-    //                      (ex.: 0.9 = perde 10% da ativação por frame)
-    //   disparou        -> controlado pelo motor (true no frame do disparo)
-    // ---------------------------------------------------------------
-    const neuronios = [
-      { nome: 'Sensor de Sombra',  ativacao: 0, limiar: 0.5, taxaDeVazamento: 0.80, disparou: false },
-      { nome: 'Neurônio de Fuga',  ativacao: 0, limiar: 1.0, taxaDeVazamento: 0.90, disparou: false },
-      { nome: 'Neurônio Motor',    ativacao: 0, limiar: 1.0, taxaDeVazamento: 0.95, disparou: false },
-      // Desafio final: circuito da comida (começa "dormente")
-      { nome: 'Sensor de Comida',  ativacao: 0, limiar: 0.5, taxaDeVazamento: 0.80, disparou: false },
-      { nome: 'Neurônio de Busca', ativacao: 0, limiar: 1.0, taxaDeVazamento: 0.90, disparou: false }
-    ];
-
-    // ---------------------------------------------------------------
-    // LISTA DE SINAPSES
-    // Cada sinapse é um OBJETO com:
-    //   origem  -> nome do neurônio que ENVIA o sinal
-    //   destino -> nome do neurônio que RECEBE o sinal
-    //   peso    -> ★ O NÚMERO QUE O ALUNO VAI EDITAR! ★
-    //              peso > 0  = excita (facilita o disparo do destino)
-    //              peso < 0  = inibe  (dificulta o disparo do destino)
-    //              peso = 0  = sinapse "cortada" (cérebro quebrado!)
-    // ---------------------------------------------------------------
-    const sinapses = [
-
-      // >>> CIRCUITO DE FUGA (conserte estes pesos!) <<<
-      { origem: 'Sensor de Sombra', destino: 'Neurônio de Fuga', peso: 0.0 },  // <-- EDITE AQUI
-      { origem: 'Neurônio de Fuga', destino: 'Neurônio Motor',   peso: 0.0 },  // <-- EDITE AQUI
-
-      // >>> CIRCUITO DE BUSCA POR COMIDA (desafio final) <<<
-      { origem: 'Sensor de Comida',  destino: 'Neurônio de Busca', peso: 0.0 }, // <-- EDITE AQUI (desafio)
-      { origem: 'Neurônio de Busca', destino: 'Neurônio Motor',    peso: 0.0 }, // <-- EDITE AQUI (desafio)
-
-      // >>> PRIORIDADE: quando a mosca FUGE, o circuito de comida
-      //     deve ser INIBIDO (peso negativo). Perigo vem primeiro! <<<
-      { origem: 'Neurônio de Fuga', destino: 'Neurônio de Busca', peso: 0.0 }   // <-- EDITE AQUI (desafio)
-    ];
-
-    // --- ÁREA DE EDIÇÃO DO ALUNO: Ajuste os pesos das sinapses aqui ---
-    //
-    //  MISSÃO: troque os pesos 0.0 acima para consertar o cérebro
-    //  e fazer a mosca SOBREVIVER 10 segundos à sombra!
-    //
-    //  ROTEIRO SUGERIDO:
-    //   1. 'Sensor de Sombra' -> 'Neurônio de Fuga':  0.0 vira 1.0
-    //   2. 'Neurônio de Fuga' -> 'Neurônio Motor':    0.0 vira 1.0
-    //   3. Rodou? A mosca agora sente o perigo e foge!
-    //
-    //  EXPERIMENTOS EXTRAS:
-    //   - Pesos maiores (ex.: 1.5) = reação mais forte/rápida.
-    //   - Pesos pequenos demais (ex.: 0.3) = mosca lenta, "sonolenta".
-    //   - Peso NEGATIVO inibe: tente inibir um circuito com -2.0.
-    //   - Você também pode ajustar 'limiar' e 'taxaDeVazamento'
-    //     na lista de neurônios e comparar o comportamento!
-    // -------------------------------------------------------------------
-
-    // ----- Constantes sensoriais e motoras (do motor do cérebro) -----
-    const DISTANCIA_PERIGO = 170; // distância sombra-mosca em que o sensor sente o predador
-    const DISTANCIA_COMIDA = 220; // distância mosca-maçã em que o sensor sente a comida
-    const VELOCIDADE_FUGA  = 3.2; // velocidade da mosca fugindo
-    const VELOCIDADE_BUSCA = 2.2; // velocidade da mosca buscando comida
-
-    // ---------------------------------------------------------------
-    // PASSO 1 do cérebro: os SENSORES sentem o mundo e ganham estímulo.
-    // ---------------------------------------------------------------
-    function sentirMundo() {
-      const sensorSombra = neuronios.find(function(n) { return n.nome === 'Sensor de Sombra'; });
-      const sensorComida = neuronios.find(function(n) { return n.nome === 'Sensor de Comida'; });
-
-      // Quanto mais perto a sombra, mais forte o estímulo no sensor
-      if (sombra) {
-        const d = dist(sombra.x, sombra.y, mosca.x, mosca.y);
-        if (d < DISTANCIA_PERIGO) {
-          sensorSombra.ativacao += 1.0;
-        }
-      }
-
-      // Se existe comida por perto, o sensor de comida sente
-      if (comida) {
-        const d = dist(comida.x, comida.y, mosca.x, mosca.y);
-        if (d < DISTANCIA_COMIDA) {
-          sensorComida.ativacao += 1.0;
-        }
-      }
-    }
-
-    // ---------------------------------------------------------------
-    // PASSO 2 do cérebro: verifica quais neurônios atingiram o limiar.
-    // Se ativacao >= limiar -> o neurônio DISPARA neste frame.
-    // ---------------------------------------------------------------
-    function detectarDisparos() {
-      for (const n of neuronios) {
-        n.disparou = n.ativacao >= n.limiar;
-      }
-    }
-
-    // ---------------------------------------------------------------
-    // PASSO 3 do cérebro: propaga ativação pelas SINAPSES.
-    // Para cada sinapse cuja origem disparou, soma o PESO na
-    // ativação do neurônio de destino.
-    //   peso positivo -> excita | peso negativo -> inibe
-    // ---------------------------------------------------------------
-    function propagarSinapses() {
-      for (const s of sinapses) {
-        const origem  = neuronios.find(function(n) { return n.nome === s.origem; });
-        const destino = neuronios.find(function(n) { return n.nome === s.destino; });
-        if (origem && destino && origem.disparou) {
-          destino.ativacao += s.peso; // <-- aqui o peso do aluno faz efeito!
-        }
-      }
-    }
-
-    // ---------------------------------------------------------------
-    // PASSO 4 do cérebro: VAZAMENTO. A ativação "esfria" a cada frame
-    // (multiplicação por taxaDeVazamento), impedindo excitação infinita.
-    // ---------------------------------------------------------------
-    function aplicarVazamento() {
-      for (const n of neuronios) {
-        n.ativacao = n.ativacao * n.taxaDeVazamento;
-      }
-    }
-
-    // ---------------------------------------------------------------
-    // PASSO 5 do cérebro: AÇÃO. Se o Neurônio Motor disparou, a mosca
-    // se move na direção OPOSTA à sombra. Se o Neurônio de Busca
-    // disparou (e a fuga não estiver vencendo), ela vai até a comida.
-    // ---------------------------------------------------------------
-    function agir() {
-      const motor = neuronios.find(function(n) { return n.nome === 'Neurônio Motor'; });
-      const fuga  = neuronios.find(function(n) { return n.nome === 'Neurônio de Fuga';  });
-      const busca = neuronios.find(function(n) { return n.nome === 'Neurônio de Busca'; });
-
-      // Só existe movimento se o NEURÔNIO MOTOR disparou.
-      // Ele recebe ativação de DOIS circuitos (convergência sináptica):
-      // Fuga -> Motor e Busca -> Motor.
-      if (motor && motor.disparou) {
-
-        // PRIORIDADE 1 — FUGA: se o Neurônio de Fuga disparou neste
-        // frame, a mosca corre na direção OPOSTA à sombra
-        // (o vetor da sombra para a mosca aponta para longe do perigo).
-        if (fuga && fuga.disparou) {
-          mosca.angulo = atan2(mosca.y - sombra.y, mosca.x - sombra.x);
-          mosca.mover(mosca.angulo, VELOCIDADE_FUGA);
-        }
-
-        // PRIORIDADE 2 — BUSCA (desafio): sem perigo por perto, se o
-        // Neurônio de Busca disparou, a mosca anda em direção à comida.
-        else if (busca && busca.disparou && comida) {
-          mosca.angulo = atan2(comida.y - mosca.y, comida.x - mosca.x);
-          mosca.mover(mosca.angulo, VELOCIDADE_BUSCA);
-
-          // A mosca comeu a maçã? Uma nova nascerá em ~2 segundos.
-          if (dist(mosca.x, mosca.y, comida.x, comida.y) < 22) {
-            comida = null;
-            framesAteNovaComida = 120;
-          }
-        }
-      }
-    }
-
-    // ---------------------------------------------------------------
-    // atualizarCerebro: roda 1 "tick" completo do cérebro por frame,
-    // na ordem certa: sentir -> disparar -> propagar -> agir -> vazar.
-    // ---------------------------------------------------------------
-    function atualizarCerebro() {
-      sentirMundo();
-      detectarDisparos();
-      propagarSinapses();
-      agir();
-      aplicarVazamento();
-    }
-
-    /* ================================================================
-       DESAFIO ADICIONAL (para casa): PRIORIDADE COMPORTAMENTAL
-       ================================================================
-       A maçã (verde/vermelha) nasce em posições aleatórias.
-
-       1. Acenda o circuito da comida:
-            { origem: 'Sensor de Comida',  destino: 'Neurônio de Busca', peso: 1.0 },
-            { origem: 'Neurônio de Busca', destino: 'Neurônio Motor',    peso: 1.0 }
-
-       2. Crie PRIORIDADE: quando a mosca precisa FUGIR, o circuito
-          de busca deve ser INIBIDO. Troque o peso da última sinapse:
-            { origem: 'Neurônio de Fuga', destino: 'Neurônio de Busca', peso: -3.0 }
-          Agora, enquanto o Neurônio de Fuga dispara, ele desativa a
-          busca: fugir do perigo sempre vence buscar comida.
-
-       CONCEITO DE NEUROCIÊNCIA: é assim que cérebros reais resolvem
-       conflitos entre comportamentos — inibindo circuitos rivais.
-       Experimente também inibir o inverso (Busca -> Fuga) e observe
-       a mosca "brigar" entre comer e fugir!
-
-       OUTRAS IDEIAS:
-       - Adicione um 'Sensor de Borda' que dispara quando a mosca
-         chega perto das paredes (para ela não ficar presa no canto).
-       - Crie um 'Neurônio de Pânico' com limiar alto que só dispara
-         quando a sombra está MUITO perto, dando um turbo de velocidade.
-       ================================================================ */
-  </script>
+  <!-- Legenda visual do jogo -->
+  <div class="legenda">
+    <span><i class="ponto" style="background:#ff5d73"></i> perigo</span>
+    <span><i class="ponto" style="background:#00e5a0"></i> neurônio disparou</span>
+    <span><i class="ponto" style="background:#ffc93c"></i> comida</span>
+    <span><i class="ponto" style="background:#4dd0ff"></i> ativação</span>
+    <span>⌨️ tecla <b>R</b> reinicia</span>
+  </div>
+
+  <footer>Projeto didático inspirado no conectoma da <i>Drosophila melanogaster</i> 🪰✨</footer>
+
+  <!--
+    ORDEM DE CARREGAMENTO (importante!):
+    motor.js define setup/draw e lê neuronios/sinapses de cerebro.js;
+    cerebro.js usa dist/atan2/random do p5 e 'explodirFaiscas' do motor.
+    A inicialização só acontece quando TODOS já foram carregados.
+  -->
+  <script src="js/motor.js"></script>
+  <script src="js/cerebro.js"></script>
 </body>
 </html>

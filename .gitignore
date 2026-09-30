@@ -1,0 +1,6 @@
+# Dependências do servidor local (npm install)
+node_modules/
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db

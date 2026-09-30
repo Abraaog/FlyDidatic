@@ -1,0 +1,12 @@
+{
+  "name": "flydidatic",
+  "version": "1.0.0",
+  "description": "Simulador didático do conectoma da Drosophila em p5.js — conserte o cérebro da mosca ajustando sinapses",
+  "scripts": {
+    "start": "serve -l 3000 .",
+    "check": "node --check js/motor.js && node --check js/cerebro.js && echo 'Sintaxe OK'"
+  },
+  "devDependencies": {
+    "serve": "^14.2.4"
+  }
+}

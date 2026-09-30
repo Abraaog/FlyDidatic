@@ -1,0 +1,149 @@
+/* ================================================================
+   ESTILO DA PÁGINA — tema "laboratório neon"
+   Fundo espacial profundo, cartões de vidro coloridos e canvas
+   emoldurado com brilho. Nada aqui afeta a lógica do jogo.
+   ================================================================ */
+
+:root {
+  --violeta: #7c4dff;
+  --menta:   #00e5a0;
+  --coral:   #ff5d73;
+  --ambar:   #ffc93c;
+  --azul:    #4dd0ff;
+  --fundo:   #120b2e;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 24px 16px 40px;
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 0%,  rgba(124, 77, 255, 0.25), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 85% 15%, rgba(0, 229, 160, 0.14), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 50% 110%, rgba(255, 93, 115, 0.12), transparent 60%),
+    var(--fundo);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: 'Nunito', sans-serif;
+  color: #efeaff;
+}
+
+/* ----- Cabeçalho com título gradiente pulsante ----- */
+header { text-align: center; max-width: 860px; }
+
+h1 {
+  font-family: 'Baloo 2', cursive;
+  font-size: clamp(26px, 4.5vw, 42px);
+  margin: 8px 0 6px;
+  line-height: 1.15;
+  background: linear-gradient(90deg, var(--ambar), var(--coral), var(--violeta), var(--azul), var(--menta));
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: brilho 8s linear infinite;
+}
+@keyframes brilho { to { background-position: 300% 0; } }
+
+.emoji-cabecalho {
+  display: inline-block;
+  font-size: clamp(30px, 5vw, 46px);
+  animation: pulsar 2.2s ease-in-out infinite;
+}
+@keyframes pulsar {
+  0%, 100% { transform: scale(1)    rotate(-4deg); }
+  50%      { transform: scale(1.15) rotate( 4deg); }
+}
+
+.sub {
+  margin: 0 auto 14px;
+  max-width: 640px;
+  font-size: 15px;
+  color: #bfa9ff;
+}
+
+/* ----- Etiquetas coloridas (chips) ----- */
+.etiquetas { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 20px; }
+.etiqueta {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+}
+.etiqueta.violeta { border-color: var(--violeta); color: #cbb4ff; }
+.etiqueta.menta   { border-color: var(--menta);   color: #9dffd9; }
+.etiqueta.coral   { border-color: var(--coral);   color: #ffb3be; }
+
+/* ----- Cartões de instruções (passo a passo) ----- */
+.cartoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  max-width: 860px;
+  margin-bottom: 20px;
+}
+.cartao {
+  flex: 1 1 220px;
+  max-width: 270px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 16px;
+  padding: 14px 16px;
+  backdrop-filter: blur(6px);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+.cartao:hover { transform: translateY(-3px); }
+.cartao h3 {
+  margin: 0 0 6px;
+  font-family: 'Baloo 2', cursive;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cartao p  { margin: 0; font-size: 13px; line-height: 1.45; color: #cfc3f2; }
+.cartao .num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 900;
+  color: #120b2e;
+  flex: none;
+}
+.cartao.c1 { border-top: 3px solid var(--coral);   } .cartao.c1 .num { background: var(--coral); }
+.cartao.c2 { border-top: 3px solid var(--violeta); } .cartao.c2 .num { background: var(--violeta); color: #fff; }
+.cartao.c3 { border-top: 3px solid var(--menta);   } .cartao.c3 .num { background: var(--menta); }
+
+/* ----- Moldura neon do canvas ----- */
+#canvas-wrap {
+  padding: 10px;
+  border-radius: 26px;
+  background: rgba(255,255,255,0.04);
+  box-shadow:
+    0 0 0 2px rgba(124, 77, 255, 0.55),
+    0 0 45px rgba(124, 77, 255, 0.30),
+    0 25px 60px rgba(0, 0, 0, 0.45);
+}
+#canvas-wrap canvas { border-radius: 18px; display: block; }
+
+/* ----- Legenda de cores (rodapé) ----- */
+.legenda {
+  display: flex; flex-wrap: wrap; gap: 14px;
+  justify-content: center;
+  margin-top: 18px;
+  font-size: 12.5px;
+  color: #b9a8e8;
+}
+.legenda span { display: inline-flex; align-items: center; gap: 6px; }
+.ponto { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+footer { margin-top: 26px; font-size: 12px; color: #7f6fb3; text-align: center; }
